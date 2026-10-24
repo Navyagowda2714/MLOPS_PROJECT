@@ -18,6 +18,7 @@ src="https://capsule-render.vercel.app/api?type=waving&color=0:070A12,45:1E3A8A,
 
 <br/><br/>
 
+<a href="#-quickstart"><b>Quickstart</b></a> •
 <a href="#-lifecycle-architecture"><b>Lifecycle</b></a> •
 <a href="#-pipeline-structure"><b>Pipeline</b></a> •
 <a href="#-automation-logic"><b>Automation</b></a> •
@@ -26,6 +27,57 @@ src="https://capsule-render.vercel.app/api?type=waving&color=0:070A12,45:1E3A8A,
 <a href="#-contact"><b>Contact</b></a>
 
 </div>
+
+---
+
+
+<!-- quickstart:start -->
+# 🚀 Quickstart
+
+[![ci](https://github.com/Navyagowda2714/MLOPS_PROJECT/actions/workflows/ci.yml/badge.svg)](https://github.com/Navyagowda2714/MLOPS_PROJECT/actions/workflows/ci.yml)
+
+**Requirements:** Python 3.10+ (or Docker). The dataset is included, so everything runs offline.
+
+```bash
+git clone https://github.com/Navyagowda2714/MLOPS_PROJECT.git
+cd MLOPS_PROJECT
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 1. Train: ingestion → validation → transformation → model selection
+python -m src.pipeline.train_pipeline
+#    artifacts/ now holds train/test splits, validation_report.json,
+#    preprocessor.joblib, model.joblib and metrics.json
+
+# 2. Serve
+python app.py                                   # → http://127.0.0.1:5000/health
+curl http://127.0.0.1:5000/features             # expected input columns
+```
+
+**Docker** (trains during the build, then serves with gunicorn):
+
+```bash
+docker build -t mlops-pipeline .
+docker run -p 5000:5000 mlops-pipeline
+```
+
+**Tests**
+
+```bash
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+**Current results** (held-out test set, model selected on recall for the malignant class):
+
+| Model | Recall | Precision | F1 | ROC-AUC |
+|---|---|---|---|---|
+| **Logistic Regression** (promoted) | 0.976 | 0.976 | 0.976 | 0.995 |
+| Random Forest | 0.929 | 0.951 | 0.940 | 0.994 |
+| Gradient Boosting | 0.905 | 0.974 | 0.938 | 0.989 |
+
+To use a different dataset, change `data.source_path` and `data.target_column` in `config/config.yaml`.
+<!-- quickstart:end -->
 
 ---
 
@@ -61,21 +113,23 @@ This is designing the system around the model.
 <br/>
 
 ```
-/data
-   ├── ingestion
-   ├── validation
-/model
-   ├── training
-   ├── evaluation
-/service
-   ├── api
-   ├── inference
-/deployment
-   ├── dockerfile
-   ├── configs
-/monitoring
-   ├── logging
-   ├── metrics
+config/config.yaml              ← every path, split ratio, model and threshold lives here
+data/breast_cancer.csv          ← raw dataset (UCI Breast Cancer Wisconsin)
+src/
+├── components/
+│   ├── data_ingestion.py       ← stratified train/test split
+│   ├── data_validation.py      ← schema, dtype, missing-value and label checks
+│   ├── data_transformation.py  ← impute + scale, fitted on train only
+│   ├── model_trainer.py        ← trains LR / RF / GB, promotes best by recall
+│   └── prediction.py           ← loads promoted artifacts, scores new records
+├── pipeline/
+│   ├── train_pipeline.py       ← ingestion → validation → transformation → training
+│   └── predict_pipeline.py     ← batch / single-record inference
+└── utils/                      ← logger, YAML/joblib helpers, PipelineError
+app.py                          ← Flask API: /health, /features, /predict
+Dockerfile                      ← trains at build time, serves with gunicorn
+tests/                          ← pytest: components, pipelines, API
+.github/workflows/ci.yml        ← tests → end-to-end train → docker build + smoke test
 ```
 
 Each directory reflects lifecycle separation.
