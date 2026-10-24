@@ -1,0 +1,37 @@
+# Central configuration for the train / predict pipelines.
+# Every path is relative to the project root.
+
+data:
+  source_path: data/breast_cancer.csv   # raw dataset (UCI Breast Cancer Wisconsin, 569 rows)
+  target_column: target                  # 0 = malignant, 1 = benign
+  test_size: 0.2
+  random_state: 42
+
+validation:
+  min_rows: 100
+  max_missing_ratio: 0.05   # fail the run if any column is more than 5% empty
+  allowed_target_values: [0, 1]
+
+artifacts:
+  root: artifacts
+  train_file: train.csv
+  test_file: test.csv
+  validation_report: validation_report.json
+  preprocessor: preprocessor.joblib
+  model: model.joblib
+  metrics: metrics.json
+
+training:
+  selection_metric: recall      # missing a malignant tumour is the costly error
+  positive_label: 0             # recall is computed for the malignant class
+  min_score: 0.85               # refuse to promote a model below this score
+  models:
+    logistic_regression:
+      C: 1.0
+      max_iter: 1000
+    random_forest:
+      n_estimators: 200
+      max_depth: 8
+    gradient_boosting:
+      n_estimators: 150
+      learning_rate: 0.1
